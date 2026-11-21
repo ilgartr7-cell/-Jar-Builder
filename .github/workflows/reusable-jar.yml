@@ -1,0 +1,95 @@
+
+name: Reusable Gradle JAR Builder
+
+on:
+  workflow_call:
+    inputs:
+      java-version:
+        description: Java version
+        required: false
+        type: string
+        default: "17"
+
+      gradle-task:
+        description: Gradle task
+        required: false
+        type: string
+        default: "build"
+
+      jar-directory:
+        description: JAR output directory
+        required: false
+        type: string
+        default: "build/libs"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build JAR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Check Gradle Wrapper
+        run: |
+          if [ ! -f "./gradlew" ]; then
+            echo "ERROR: gradlew not found!"
+            exit 1
+          fi
+          chmod +x ./gradlew
+
+      - name: Build project
+        env:
+          GRADLE_TASK: ${{ inputs.gradle-task }}
+        run: |
+          ./gradlew --no-daemon "$GRADLE_TASK"
+
+      - name: Check JAR output
+        env:
+          JAR_DIRECTORY: ${{ inputs.jar-directory }}
+        run: |
+          if [ ! -d "$JAR_DIRECTORY" ]; then
+            echo "ERROR: JAR directory not found!"
+            exit 1
+          fi
+
+          mkdir -p jar-output
+
+          FOUND=0
+
+          while IFS= read -r -d '' FILE; do
+            echo "Found JAR: $FILE"
+
+            jar tf "$FILE" > /dev/null
+
+            cp "$FILE" jar-output/
+            FOUND=1
+          done < <(find "$JAR_DIRECTORY" -type f -name "*.jar" -print0)
+
+          if [ "$FOUND" -eq 0 ]; then
+            echo "ERROR: No JAR file found!"
+            exit 1
+          fi
+
+          echo "JAR verification completed successfully."
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-jar
+          path: jar-output/*.jar
+          if-no-files-found: error
+          retention-days: 14
