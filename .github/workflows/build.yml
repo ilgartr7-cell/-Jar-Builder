@@ -1,0 +1,21 @@
+
+name: Build My Project JAR
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: YOUR_USERNAME/Jar-Builder/.github/workflows/reusable-jar.yml@main
+
+    with:
+      java-version: "17"
+      gradle-task: "build"
+      jar-directory: "build/libs"
